@@ -101,7 +101,7 @@ function generateAdminOptions(form) {
     const admin_template = `
         <html>
         <head>
-            <title>New message from ${form.name}</title>
+            <h2>New message from ${form.name}</h2>
         </head>
         <body>
             New message has been sent via website.<br><br>
@@ -136,9 +136,18 @@ function generateAdminOptions(form) {
 
 function generateUserOptions(form) {
     const user_template = `
-        Hello ${form.name}, \n
-        Thank you for contacting ${form.org}! \n
-        I have received your message and I will get back to you as soon as possible.
+        <html>
+            <body>
+                Hello ${form.name}, <br>
+                <br>
+                Thank you for reaching out! <br>
+                <br>
+                Your message has been received by ${form.org} and we will be in contact as soon as possible. <br>
+                <br>
+                Thank you, <br>
+                ${form.org}
+        </body>
+        </html>
     `;
 
     let user_data = {
