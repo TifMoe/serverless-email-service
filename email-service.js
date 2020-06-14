@@ -3,9 +3,9 @@ const config = {
         client_key: CLIENT_API_KEY,
         mailgun_key: MAILGUN_API_KEY,
         mailgun_domain: MAILGUN_DOMAIN,
-        from: "auto@" + MAILGUN_DOMAIN, // eventually I'll parameterize the sender based on client API key
-        admin_email: ADMIN_EMAIL,
+        from: "auto@" + MAILGUN_DOMAIN,
         email_field: "email", // email field name
+        admin_email: "adminEmail",
         form_fields: ["name", "message", "org"], // list of required fields
         honeypot_field: "email2" // honeypot field name
 };
@@ -95,6 +95,9 @@ function validateInput(form) {
     if (form[config.email_field] == "" || !email_regex.test(form[config.email_field])) {
         throw new Error("Please, enter valid email address")
     }
+    if (form[config.admin_email] == "" || !email_regex.test(form[config.admin_email])) {
+        throw new Error("No admin email address found. Please contact site administrator")
+    }
 }
 
 function generateAdminOptions(form) {
@@ -116,7 +119,7 @@ function generateAdminOptions(form) {
 
     let admin_data = {
         from: config.from,
-        to: config.admin_email,
+        to: form.adminEmail,
         subject: `${form.org}: New message from ${form.name}`,
         html: admin_template,
         "h:Reply-To": form.email // reply to user
@@ -155,7 +158,7 @@ function generateUserOptions(form) {
         to: form.email,
         subject: `Thank you for contacting ${form.org}!`,
         html: user_template,
-        "h:Reply-To": config.admin_email // reply to admin
+        "h:Reply-To": form.adminEmail, // reply to admin
     };
 
     let user_options = {
@@ -171,6 +174,7 @@ function generateUserOptions(form) {
 }
 
 async function handle(request) {
+    console.log(request)
     // Authenticate pre-distributed API key
     try {
         authorize(request);
@@ -180,6 +184,7 @@ async function handle(request) {
 
     // Validate form fields
     const form = await request.json(); 
+
     try {
         validateInput(form);
     } catch (err)  {
@@ -191,15 +196,24 @@ async function handle(request) {
         const admin_options = generateAdminOptions(form);
         const user_options = generateUserOptions(form);
 
+        // Config to submit each email
+        const options = [admin_options, user_options];
+
         // Send admin and user emails
         try {
-            let results = await Promise.all([
-                fetch(`https://api.mailgun.net/v3/${config.mailgun_domain}/messages`, admin_options),
-                fetch(`https://api.mailgun.net/v3/${config.mailgun_domain}/messages`, user_options)
-            ]);
-            console.log(results);
+            await Promise.all(options.map(opt =>
+                fetch(`https://api.mailgun.net/v3/${config.mailgun_domain}/messages`, opt)
+                .then(response => {
+                    if (response.status != 200) {
+                        throw new Error("Email failed to send");
+                    }
+                })
+                .catch(err => {
+                    console.log(err)
+                    throw new Error("Email failed to send");
+                })
+            ));
             return JSONResponse("Message has been sent");
-
         } catch (err) {
             return JSONResponse("Failed to send email, please contact website administrator", 500);
         }
